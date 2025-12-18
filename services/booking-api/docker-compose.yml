@@ -1,0 +1,80 @@
+services:
+  booking-api:
+    build: .
+    container_name: booking-api
+    environment:
+      - APP_ENV=prod
+      - PORT=8000
+      # - DATABASE_URL=${BOOKING_DATABASE_URL}  # lấy từ env/secret
+    ports:
+      - "8000:8000"
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://loki:3100/loki/api/v1/push"
+        loki-external-labels: "service=booking-api,env=prod"
+    restart: unless-stopped
+
+  # Logs: Loki + Promtail
+  loki:
+    image: grafana/loki:2.9.8
+    command: -config.file=/etc/loki/loki.yaml
+    volumes:
+      - ./observability/loki:/etc/loki:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    command: -config.file=/etc/promtail/promtail.yaml
+    environment:
+      - DOCKER_API_VERSION=1.44
+    volumes:
+      - ./observability/promtail/promtail.yaml:/etc/promtail/promtail.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    depends_on: [loki]
+
+  # Metrics: Prometheus + cAdvisor (CPU/RAM per container)
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command: --config.file=/etc/prometheus/prometheus.yaml
+    volumes:
+      - ./observability/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD='12345678'
+    depends_on: [loki, prometheus]
+    restart: unless-stopped
+
+volumes:
+  loki_data:
+  grafana_data:
