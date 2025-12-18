@@ -1,17 +1,6 @@
-name: Build & Push booking-api to GHCR
-
-on:
-  push:
-    branches: ["main"]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  packages: write
-
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}   # có thể có chữ hoa, metadata-action sẽ xử lý
+  IMAGE_SUFFIX: booking-api-booking-api   # tên image bạn muốn sau owner/
 
 jobs:
   build:
@@ -27,14 +16,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker meta (lowercase + tags)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha
+      - name: Compute lowercase image name
+        id: img
+        run: |
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=${{ env.REGISTRY }}/${OWNER_LC}/${{ env.IMAGE_SUFFIX }}" >> $GITHUB_OUTPUT
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -42,5 +28,6 @@ jobs:
           context: ./services/booking-api
           file: ./services/booking-api/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ steps.img.outputs.image }}:latest
+            ${{ steps.img.outputs.image }}:${{ github.sha }}
