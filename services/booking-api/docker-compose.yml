@@ -1,6 +1,6 @@
 services:
   booking-api:
-    build: .
+    build: ghcr.io/congchu99/booking-api:latest
     container_name: booking-api
     environment:
       - APP_ENV=prod
