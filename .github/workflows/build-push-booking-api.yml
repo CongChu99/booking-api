@@ -11,7 +11,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/cong-chu/booking-api:latest
+  IMAGE_NAME: ${{ github.repository }}
   # github.repository = "<owner>/<repo>"  => image sẽ thành "ghcr.io/<owner>/<repo>-booking-api"
 
 jobs:
